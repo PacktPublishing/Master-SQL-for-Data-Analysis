@@ -1,0 +1,608 @@
+--------------------------------------------------------------------------
+-- Level 2 - SQL code being used during the training. 
+-- by Idan Gabrieli. 
+--------------------------------------------------------------------------
+/* Section: Getting Started */
+--------------------------------------------------------------------------
+----------------------------------
+/* Loading the Books Datasets */
+----------------------------------
+CREATE SCHEMA books_schema;
+-- book1 dataset 
+CREATE TABLE books_schema.books1
+(
+	isbn varchar(15) PRIMARY KEY,
+	book_title varchar(300),
+	book_author varchar(300),
+	year_of_publication integer,
+	publisher varchar(300)
+);
+COPY books_schema.books1 (isbn, book_title, book_author, year_of_publication, publisher) 
+FROM 'c:\data\books\books1.csv'
+DELIMITER ','
+CSV HEADER;
+----------------------------------
+-- book2 dataset 
+CREATE TABLE books_schema.books2
+(
+	isbn varchar(15) PRIMARY KEY,
+	book_title varchar(300),
+	book_author varchar(300),
+	year_of_publication integer,
+	publisher varchar(300)
+);
+COPY books_schema.books2 (isbn, book_title, book_author, year_of_publication, publisher) 
+FROM 'c:\data\books\books2.csv'
+DELIMITER ','
+CSV HEADER;
+----------------------------------
+-- users dataset 
+CREATE TABLE books_schema.users
+(
+	user_id integer PRIMARY KEY,
+	age integer,
+	city varchar(100),
+	state varchar(100), 
+	country varchar(100),
+    gender varchar(1)
+);
+COPY books_schema.users (user_id, age, city, state, country, gender)
+FROM 'c:\data\books\users.csv'
+DELIMITER ','
+CSV HEADER;
+----------------------------------
+-- ratings dataset 
+CREATE TABLE books_schema.ratings
+(
+	rating_id integer PRIMARY KEY,
+user_id integer, 
+	isbn varchar(15),
+book_rating smallint
+);
+COPY books_schema.ratings (rating_id, user_id, isbn, book_rating)
+FROM 'c:\data\books\ratings.csv'
+DELIMITER ','
+CSV HEADER;
+----------------------------------
+/* Loading the eCommerce Datasets */
+----------------------------------
+CREATE SCHEMA ecommerce_schema;
+-- customers dataset
+CREATE TABLE ecommerce_schema.customers
+(	
+    customer_id varchar(32) PRIMARY KEY,
+    customer_name varchar(20),
+    customer_zip_code_prefix integer,
+    customer_city varchar(50),
+    customer_state varchar(20)
+);
+COPY ecommerce_schema.customers (customer_id, customer_name, customer_zip_code_prefix,customer_city, customer_state)
+FROM 'c:\data\ecommerce\customers.csv'
+DELIMITER ','
+CSV HEADER;
+----------------------------------
+-- products dataset
+CREATE TABLE ecommerce_schema.products
+(	
+    product_id varchar(32) PRIMARY KEY,
+    product_category_name varchar(50),
+    product_price integer,
+    product_weight_g integer,
+    product_length_cm integer,
+    product_height_cm integer,
+    product_width_cm integer
+);
+COPY ecommerce_schema.products (product_id, product_category_name, product_price, product_weight_g, product_length_cm, product_height_cm, product_width_cm)
+FROM 'c:\data\ecommerce\products.csv'
+DELIMITER ','
+CSV HEADER;
+----------------------------------
+-- suppliers dataset
+CREATE TABLE ecommerce_schema.suppliers
+(	
+    supplier_id varchar(32) PRIMARY KEY, 
+    supplier_zip_code_prefix integer, 
+    supplier_city varchar(50), 
+    supplier_state varchar(2)
+);
+COPY ecommerce_schema.suppliers (supplier_id, supplier_zip_code_prefix, supplier_city, supplier_state)
+FROM 'c:\data\ecommerce\suppliers.csv'
+DELIMITER ','
+CSV HEADER;
+----------------------------------
+-- orders dataset
+CREATE TABLE ecommerce_schema.orders
+(	
+    order_id varchar(32) PRIMARY KEY,
+    customer_id varchar(32) REFERENCES ecommerce_schema.customers(customer_id),
+    order_status varchar(20),
+    order_purchase_timestamp timestamp,
+    order_delivered_customer_date timestamp,
+    order_estimated_delivery_date timestamp
+);
+COPY ecommerce_schema.orders (order_id, customer_id, order_status, order_purchase_timestamp, 
+                              order_delivered_customer_date, order_estimated_delivery_date)
+FROM 'c:\data\ecommerce\orders.csv'
+DELIMITER ','
+CSV HEADER;
+----------------------------------
+-- order_reviews dataset
+CREATE TABLE ecommerce_schema.order_reviews
+(	
+    review_id integer PRIMARY KEY,
+    order_id varchar(32) REFERENCES ecommerce_schema.orders(order_id),
+    review_score smallint,
+    review_creation_date timestamp
+);
+COPY ecommerce_schema.order_reviews (review_id, order_id, review_score, review_creation_date)
+FROM 'c:\data\ecommerce\order_reviews.csv'
+DELIMITER ','
+CSV HEADER;
+----------------------------------
+-- order_items dataset
+CREATE TABLE ecommerce_schema.order_items
+(	
+    order_id varchar(32),  	    
+    order_item_id integer,    
+    product_id varchar(32) REFERENCES ecommerce_schema.products(product_id),
+    shipping_limit_date timestamp, 
+    price float,
+    freight_value float,
+    PRIMARY KEY (order_id, order_item_id)
+);
+COPY ecommerce_schema.order_items (order_id, order_item_id, product_id,
+                                  shipping_limit_date, price, freight_value)                                
+FROM 'c:\data\ecommerce\order_items.csv'
+DELIMITER ','
+CSV HEADER;
+----------------------------------
+-- order_payments dataset
+CREATE TABLE ecommerce_schema.order_payments
+(	
+    order_id varchar(32),
+    payment_sequential smallint,
+    payment_type varchar(20),
+    payment_installments smallint, 
+    payment_value float,
+    PRIMARY KEY (order_id, payment_sequential)
+);
+COPY ecommerce_schema.order_payments (order_id, payment_sequential, payment_type, payment_installments, payment_value)
+FROM 'c:\data\ecommerce\order_payments.csv'
+DELIMITER ','
+CSV HEADER;
+----------------------------------
+
+--------------------------------------------------------------------------
+/* Section: SQL - Combining Data from Multiple Tables */
+--------------------------------------------------------------------------
+/* UNION */
+----------------------------------
+-- The distinct amount of cities per each state in the customers table
+SELECT customer_state, count(distinct customer_city)
+FROM ecommerce_schema.customers
+GROUP by customer_state
+ORDER BY 2;
+-- Filter the list of distinct cities in the state with the value of "CE from customers 
+SELECT distinct customer_city
+FROM ecommerce_schema.customers
+WHERE customer_state = 'CE';
+-- Filter the list of distinct cities in the state with the value of "CE" from suppliers
+SELECT distinct supplier_city
+FROM ecommerce_schema.suppliers
+WHERE supplier_state = 'CE';
+-- UNION 
+SELECT distinct customer_city
+FROM ecommerce_schema.customers
+WHERE customer_state = 'CE'
+UNION
+SELECT distinct supplier_city
+FROM ecommerce_schema.suppliers
+WHERE supplier_state = 'CE';
+----------------------------------
+/* INTERSECT */
+----------------------------------
+-- List of cities that exist in the customers table as well as in the suppliers in specific state
+SELECT distinct customer_city
+FROM ecommerce_schema.customers
+WHERE customer_state = 'CE'
+INTERSECT
+SELECT distinct supplier_city
+FROM ecommerce_schema.suppliers
+WHERE supplier_state = 'CE';
+----------------------------------
+/* EXCEPT */
+----------------------------------
+-- List of distinct rows in customers table that are not part of the suppliers table 
+SELECT distinct customer_city
+FROM ecommerce_schema.customers
+WHERE customer_state = 'CE'
+EXCEPT
+SELECT distinct supplier_city
+FROM ecommerce_schema.suppliers
+WHERE supplier_state = 'CE';
+----------------------------------
+/* INNER JOIN */
+----------------------------------
+-- List of customers, list of orders --> connection is customer_id
+-- Get the list of orders with the customer information. 
+SELECT o.order_id, o.order_status, c.customer_id, c.customer_city 
+FROM ecommerce_schema.customers as c 
+INNER JOIN ecommerce_schema.orders as o ON c.customer_id = o.customer_id;
+----------------------------------
+-- Get the list of items per each order (using the order_id)
+SELECT o.order_id, o.customer_id, o.order_status, oi.order_item_id, oi.price
+FROM ecommerce_schema.orders as o
+INNER JOIN ecommerce_schema.order_items as oi ON o.order_id = oi.order_id 
+ORDER BY o.order_id;
+----------------------------------
+-- Adding the name of the customer to the previous query
+-- Two inner joins 
+SELECT o.order_id, o.customer_id, c.customer_name, o.order_status, oi.order_item_id, oi.price
+FROM ecommerce_schema.customers as c
+INNER JOIN ecommerce_schema.orders as o ON c.customer_id = o.customer_id 
+INNER JOIN ecommerce_schema.order_items as oi ON o.order_id = oi.order_id 
+ORDER BY o.order_id;
+----------------------------------
+/* LEFT OUTER JOIN */
+----------------------------------
+-- Get the list of all customers living in a city called 'Franca' with their orders
+-- Any customers whether they performed an order or NOT 
+SELECT c.customer_id, c.customer_name, o.order_id
+FROM ecommerce_schema.customers as c
+LEFT JOIN ecommerce_schema.orders o ON c.customer_id = o.customer_id
+WHERE customer_city = 'franca'
+ORDER BY 3 DESC;
+----------------------------------
+-- Compare to INNER JOIN
+SELECT c.customer_id, c.customer_name, o.order_id
+FROM ecommerce_schema.customers as c
+INNER JOIN ecommerce_schema.orders o ON c.customer_id = o.customer_id
+WHERE customer_city = 'franca'
+ORDER BY 3 DESC;
+----------------------------------
+
+--------------------------------------------------------------------------
+/* Section: SQL – Subqueries */
+--------------------------------------------------------------------------
+/* Sub-queries: Filter data as a Conditional Logic */
+/* A subquery that returns a single row */
+---------------------------------------------------------
+-- Syntax
+-- SELECT column_list
+-- FROM table_name
+-- WHERE column_name expression operator (subquery);
+----------------------------------
+/* All products with a weight greater than the average weight of all products */
+SELECT AVG(product_weight_g) 
+FROM ecommerce_schema.products;
+----------------------------------
+SELECT product_id, product_weight_g
+FROM ecommerce_schema.products
+WHERE product_weight_g > 2276;
+----------------------------------
+SELECT product_id, product_weight_g
+FROM ecommerce_schema.products
+WHERE product_weight_g > 
+    (
+	SELECT AVG(product_weight_g)
+	FROM ecommerce_schema.products
+    );
+----------------------------------
+/* Notes:
+1. A subquery must be enclosed in parentheses
+2. Must be placed on the right side of the comparison operator
+3. The operator in the WHERE section must be compatible with the subquery result. 
+*/
+
+----------------------------------
+/* Sub-queries: Filter data as a Conditional Logic (WHERE)
+   A subquery that returns multiple rows 
+   Operators: IN, ANY, ALL
+----------------------------------
+Syntax:
+-- SELECT column_list
+-- FROM table_name
+-- WHERE expression IN (subquery);
+*/
+----------------------------------
+-- The list of books with an average rating score equal to 9.5 that were published after 2000
+-- Using sub-query
+SELECT DISTINCT isbn 
+FROM books_schema.ratings 
+GROUP BY 1
+HAVING avg(book_rating)=9.5;
+----------------------------------
+SELECT isbn, book_title, year_of_publication
+FROM books_schema.books2
+WHERE 
+    year_of_publication>2000
+    and isbn IN (
+                    SELECT DISTINCT isbn 
+                    FROM books_schema.ratings 
+                    GROUP BY 1
+                    HAVING avg(book_rating)=9.5
+                );
+----------------------------------
+-- Using INNER Query 
+SELECT b.isbn, b.book_title, b.year_of_publication
+FROM books_schema.books2 as b
+INNER JOIN books_schema.ratings as r ON b.isbn = r.isbn
+WHERE  
+    b.year_of_publication>2000
+GROUP BY 1,2,3
+HAVING 
+    avg(r.book_rating)=9.5;
+----------------------------------
+-- The list of books that have a rating above 7, 
+-- and those ratings were provided by users living in us, 
+-- and their age is greater than 16. 
+----------------------------------
+SELECT user_id
+FROM books_schema.users
+WHERE country = 'us' and age > 16;
+----------------------------------
+SELECT isbn
+FROM books_schema.ratings 
+WHERE 
+    book_rating > 7 and 
+    user_id IN (
+        SELECT user_id
+        FROM books_schema.users
+        WHERE country = 'us' and age > 16
+    );
+----------------------------------
+SELECT book_title
+FROM books_schema.books2
+WHERE isbn IN 
+(
+    SELECT isbn
+    FROM books_schema.ratings 
+    WHERE 
+        book_rating > 7 and 
+        user_id IN (
+            SELECT user_id
+            FROM books_schema.users
+            WHERE country = 'us' and age > 16
+        )
+);
+----------------------------------
+/* Sub-queries: As Inline Views (FROM)
+   Simplify complex queries 
+----------------------------------
+Syntax:
+-- SELECT column_list
+-- FROM (inline view/sub-query) as alias_name
+*/
+----------------------------------
+-- The list of books with an average rating score equal to 9.5 that were published after 2000
+-- Using sub-query
+SELECT DISTINCT isbn 
+FROM books_schema.ratings 
+GROUP BY 1
+HAVING avg(book_rating)=9.5;
+----------------------------------
+
+--------------------------------------------------------------------------
+/* Section: SQL - Conditional Logic (CASE) */
+--------------------------------------------------------------------------
+/* Simple CASE statement */
+----------------------------------
+-- Syntax:
+--    CASE input_expression   
+--          WHEN when_expression THEN result_expression [ ...n ]   
+--          [ELSE else_result_expression]   
+--    END   
+----------------------------------
+/* Typical use case - Data Transformation */
+SELECT user_id, age, country, 
+	CASE gender 
+		WHEN 'M' THEN 'Male'
+		ELSE 'Female'
+	END AS gender 
+FROM books_schema.users;
+----------------------------------
+/* Processing steps
+----------------------------------
+> For every row the SELECT statement receives, the CASE statement goes through conditions from top to bottom
+> Returns a value when the first condition is met
+> No conditions are true, it returns the value in the ELSE clause
+> No ELSE part and no conditions are true, it returns NULL
+----------------------------------
+*/
+
+----------------------------------
+/* Searched CASE statement */
+----------------------------------
+-- Syntax:
+-- CASE
+--    WHEN condition1 THEN result1
+--    WHEN condition2 THEN result2
+--    WHEN conditionN THEN resultN
+--    ELSE result
+-- END;  
+----------------------------------
+/* Typical use case - Data Classification  */
+----------------------------------
+-- classify each user into typical age groups like children, youth, adults, and seniors. 
+SELECT user_id, country, 
+    CASE
+        WHEN age<=14 THEN 'children'
+        WHEN age>=15 AND age<=24 THEN 'youth'
+        WHEN age>=25 AND age<=64 THEN 'adults'
+        ELSE 'seniors'
+    END as age_category 
+FROM books_schema.users;
+----------------------------------
+/* Typical use case - Data Binning  */
+----------------------------------
+-- divide the products by their weight using the following binning groups: "quite heavy", "heavy", and "light".
+SELECT product_id, product_category_name,
+    CASE
+        WHEN product_weight_g<=100 THEN 'light'
+        WHEN product_weight_g >=100 AND product_weight_g <=500 THEN 'heavy'
+        ELSE 'quite heavy'
+    END as weight_category 
+FROM ecommerce_schema.products;
+----------------------------------
+-- summarize the number of products per each group
+SELECT 
+    CASE
+        WHEN product_weight_g<=100 THEN 'light'
+        WHEN product_weight_g >=100 AND product_weight_g <=500 THEN 'heavy'
+        ELSE 'quite heavy'
+    END as weight_category, 
+	count(*) as amount
+FROM ecommerce_schema.products
+GROUP BY 1;
+----------------------------------
+
+--------------------------------------------------------------------------
+/* Section: SQL - Window Functions */
+--------------------------------------------------------------------------
+----------------------------------
+/* Window Function
+   OVER and PARTITION BY */
+----------------------------------
+-- OVER: transform a function to a window function 
+-- PARTITION BY: divides the rows into groups (partitions) sharing the same partition value
+----------------------------------
+-- The list of users and for each user present, also the average age of users living in the same city
+SELECT user_id, age, city, avg(age) OVER (PARTITION BY city) as avg_age
+FROM books_schema.users
+WHERE city IS NOT NULL
+ORDER BY 1 DESC;
+----------------------------------
+SELECT user_id, age, city, avg(age) OVER (PARTITION BY city) as avg_age
+FROM books_schema.users
+WHERE city ='new york';
+----------------------------------
+/* Window Function - Sequential Numbers */
+----------------------------------
+-- A sequential integer number for every row inside a group of rows while we decide how this group will be ordered.
+-- ROW_NUMBER() window function
+----------------------------------
+SELECT city, user_id, age, ROW_NUMBER() OVER (PARTITION BY city ORDER BY age DESC) as row_num
+FROM books_schema.users
+WHERE city IS NOT NULL;
+----------------------------------
+-- The oldest user per each city, meaning the first user per each city. 
+SELECT *
+FROM (
+        SELECT city, user_id, age, ROW_NUMBER() OVER (PARTITION BY city ORDER BY age DESC) as row_num
+        FROM books_schema.users
+     ) as t
+WHERE row_num = 1;
+----------------------------------
+SELECT *
+FROM (
+        SELECT city, user_id, age, ROW_NUMBER() OVER (PARTITION BY city ORDER BY age DESC) as row_num
+        FROM books_schema.users
+     ) as t
+WHERE row_num <= 5
+ORDER BY city;
+----------------------------------
+/* Window Function - Ranking */
+----------------------------------
+-- RANK() window function
+----------------------------------
+SELECT *
+FROM (
+    SELECT city, 
+    user_id, 
+    age, 
+    RANK() OVER (
+                    PARTITION BY city 
+                    ORDER BY age DESC
+                ) as rank_num
+    FROM books_schema.users
+    ) as t
+ORDER by city;
+----------------------------------
+
+--------------------------------------------------------------------------
+/* Section: SQL – Simplify Queries (Views, CTEs) */
+--------------------------------------------------------------------------
+----------------------------------
+/* Virtual Tables (Views) */
+----------------------------------
+-- Looking on data coming from single/multiple tables without replicating the data
+-- A view is query stored in the database dictionary 
+-- Computed on-demand by the database server 
+----------------------------------
+/* Typical use cases */
+-- Simplify complex SQL queries
+-- Restrictions from accessing sensitive data
+----------------------------------
+/* encapsulate a query which is transforming the gender column */ 
+CREATE VIEW books_schema.users_vw AS
+(
+    SELECT user_id, age, country, 
+	    CASE gender 
+		    WHEN 'M' THEN 'Male'
+		    ELSE 'Female'
+	    END AS gender 
+    FROM books_schema.users
+);
+
+SELECT *
+FROM books_schema.users_vw;
+----------------------------------
+/* Combine the two books tables - book1 and book2 */
+CREATE VIEW books_schema.books_vw AS
+(
+    SELECT * 
+    FROM books_schema.books1
+    UNION 
+    SELECT * 
+    FROM books_schema.books2
+);
+
+SELECT *
+FROM books_schema.books_vw;
+----------------------------------
+/* Mask sensitive data */
+----------------------------------
+CREATE VIEW books_schema.users_limited_vw AS
+(
+    SELECT user_id, age, gender
+    FROM books_schema.users  
+);
+----------------------------------
+SELECT *
+FROM books_schema.users_limited_vw;
+----------------------------------
+DROP VIEW books_schema.users_limited_vw;
+
+----------------------------------
+/* Common Table Expressions (CTEs) */
+----------------------------------
+-- CTE is a temporary named result set that we can reference within a SELECT statement
+-- starts with the keyword "WITH" followed by the CTE Expression Name to which we can refer later in a query
+----------------------------------
+-- Define the CTE query.
+WITH avg_books_ratings_CTE 
+AS
+(
+    SELECT isbn, avg(book_rating) as avg_rating 
+    FROM books_schema.ratings
+    GROUP BY isbn
+)
+-- Define the outer query referencing the CTE name.
+SELECT max(avg_rating) as max_avg_rating 
+FROM avg_books_ratings_CTE;
+----------------------------------
+-- Define the CTE query.
+WITH cities_users_CTE 
+AS
+(
+   SELECT city, user_id, age, ROW_NUMBER() OVER (PARTITION BY city ORDER BY age DESC) as row_num
+   FROM books_schema.users
+)
+-- Define the outer query referencing the CTE name
+SELECT * 
+FROM cities_users_CTE
+WHERE row_num <= 5
+ORDER BY city;
+----------------------------------
+/* END OF FILE */
+--------------------------------------------------------------------------
